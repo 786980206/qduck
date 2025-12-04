@@ -1,54 +1,94 @@
-# qduck - DuckDB client API for KDB/Q
+# qduck
 
-This client API integrates DuckDB into KDB/Q, allowing users to query open data formats (CSV, Parquet, and Iceberg) on S3 buckets directly and return results in native KDB table format. This simplifies existing ETL processing and provides immediate access to new datasets without needing to convert to on-disk KDB format first.
+>修改自 [https://github.com/jparmstrong/qduck](https://github.com/jparmstrong/qduck)
 
-*Consider this experimental, test throughly before using in production. PRs are welcome!*
 
-## Example
+`qduck` 为 kdb+/q 提供 DuckDB 支持，通过 `qduck.l64.so` 动态库使 q 代码可以直接执行 DuckDB SQL。
 
-```
-q)x)SELECT * FROM 'https://datahub.io/core/inflation/_r/-/data/inflation-gdp.csv' WHERE "Country Code" = 'USA' ORDER BY Year DESC LIMIT 10;
-Country       Country Code Year Inflation
------------------------------------------
-United States USA          2023 4.116338 
-United States USA          2022 8.0028   
-United States USA          2021 4.697859 
-United States USA          2020 1.233584 
-United States USA          2019 1.81221  
-United States USA          2018 2.442583 
-United States USA          2017 2.13011  
-United States USA          2016 1.261583 
-United States USA          2015 0.1186271
-United States USA          2014 1.622223 
-/ to set a variable with query results
-q)t:.x.e "SELECT * FROM 'https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2025-01.parquet';"
-q)count t
-3475226
+本项目包含自动下载 DuckDB 动态库、编译 `qduck` 扩展并安装到 kdb+ 环境的脚本。
+
+---
+
+## 📦 1. 克隆仓库
+
+```bash
+git clone https://github.com/786980206/qduck.git
+cd qduck
+chmod +x build.sh
 ```
 
-Additional examples are provided in `example.q`
+---
 
-## Build and Run
+## 🔨 2. 编译（build.sh）
 
-This client API requires the duckdb c/c++ library which is available here:
+`build.sh` 自动完成 DuckDB 库下载、解压和 qduck 编译，脚本内容如下：
 
-https://duckdb.org/docs/installation/?version=stable&environment=cplusplus&platform=linux&download_method=direct&architecture=x86_64
-
-Unzip to your preferred location.
-
-Option 1: Add libduckdb to your LD_LIBRARY_PATH.
-
-```
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/path/to/libduckdb
+```bash
+wget https://install.duckdb.org/v1.4.2/libduckdb-linux-amd64.zip
+unzip libduckdb-linux-amd64.zip -d libduckdb
+gcc -shared -fPIC -o qduck/qduck.l64.so src/c/qduck.c -I./libduckdb -L./libduckdb -lduckdb -mavx2 -O2 -Wl,-rpath,'$ORIGIN'
+cp libduckdb/libduckdb.so qduck/
 ```
 
-Option 2: Add duckdb library globally:
+运行：
+
+```bash
+./build.sh
+```
+
+输出文件将生成在：
 
 ```
-sudo cp ./libduckdb/libduckdb.so /usr/local/lib/
-sudo ldconfig
+qduck/qduck.l64.so
+qduck/libduckdb.so
 ```
 
-Run `make all run`
+---
 
-*Note: KDB/Q requires shared libraries to be within the $QHOME/l64. As to not pollute your existing $QHOME directory, the contents of your $QHOME are copied into the build folder and run from the build directory. You may need to change this to suit your needs.*
+## 📥 3. 安装到 kdb+
+
+将生成的模块复制到你的 kdb+ 模块目录：
+
+```bash
+cp -r qduck ${QHOME}/mod
+# or
+cp -r qduck ~/.kx/mod
+```
+
+确保 `${QHOME}/mod/qduck` 中包含：
+
+```
+qduck.l64.so
+libduckdb.so
+init.q
+```
+
+---
+
+## ▶️ 4. 在 q 中使用
+
+加载模块：
+
+```q
+.x: use `qduck
+```
+
+执行 DuckDB SQL：
+
+```q
+.x.e "select 123"
+```
+
+或直接使用语法糖：
+
+```q
+q)x)select 123
+```
+
+---
+
+## ✔️ 完成
+
+你现在可以在 kdb+ 中直接使用 DuckDB 作为 SQL 引擎，对 Parquet、CSV 或任意 DuckDB 支持的数据源进行查询。
+
+如需我为你补充示例、多文件查询、Parquet 示例或 API 说明，也可以继续告诉我。
