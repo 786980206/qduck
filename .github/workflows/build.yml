@@ -1,0 +1,37 @@
+name: Build and Release qduck
+
+on:
+  push:
+    tags:
+      - "v*"                # 推 tag 自动生成 Release
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout
+      - uses: actions/checkout@v4
+
+      # 2. Build (你的仓库必须已经有 build.sh)
+      - name: Make build.sh executable
+        run: chmod +x build.sh
+
+      - name: Run build.sh
+        run: ./build.sh
+
+      # 3. Create package named with current date
+      - name: Create package
+        run: |
+          DATE=$(date +'%Y%m%d')
+          mkdir -p release_files
+          tar -czf release_files/qduck_$DATE.tar.gz qduck/
+
+      # 4. Upload to Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_files/*.tar.gz
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
