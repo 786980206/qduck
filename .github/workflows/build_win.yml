@@ -1,0 +1,46 @@
+name: Build and Release qduck (Windows)
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      # 1. Checkout
+      - uses: actions/checkout@v4
+
+      # 2. Setup MSYS2 with MinGW-w64 (provides gcc on Windows)
+      - name: Setup MSYS2 (MinGW-w64)
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+
+      # 3. Build — MSYS2 automatically adds C:\msys64\mingw64\bin\ to PATH
+      - name: Run build.bat
+        run: build.bat
+        shell: cmd
+
+      # 4. Create .zip package named with current date
+      - name: Create package
+        shell: pwsh
+        run: |
+          $DATE = Get-Date -Format 'yyyyMMdd'
+          New-Item -ItemType Directory -Force -Path release_files
+          Compress-Archive -Path qduck\* -DestinationPath "release_files\qduck_${DATE}_win64.zip" -Force
+          Write-Host "Created release_files\qduck_${DATE}_win64.zip"
+
+      # 5. Upload to GitHub Release (coexists with Linux .tar.gz from build.yml)
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release_files/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
