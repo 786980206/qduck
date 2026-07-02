@@ -55,7 +55,7 @@ REM ---- Step 3: Compile qduck extension DLL --------------------------------
 echo [3/4] Compiling qduck\qduck.w64.dll...
 if not exist qduck mkdir qduck
 
-gcc -shared -o qduck\qduck.w64.dll src\c\qduck.c -I.\libduckdb libduckdb\duckdb.dll -O2 -static-libgcc
+gcc -shared -o qduck\qduck.w64.dll src\c\qduck.c -I.\libduckdb libduckdb\duckdb.dll -O2 -static-libgcc -Wl,--allow-shlib-undefined
 if !errorlevel! neq 0 (
     echo.
     echo ERROR: Compilation failed.
