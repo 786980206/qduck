@@ -21,12 +21,12 @@ chmod +x build.sh
 
 ---
 
-## 🔨 2. 编译（build.sh）
+## 🔨 2. 编译
 
-`build.sh` 自动完成 DuckDB 库下载、解压和 qduck 编译，脚本内容如下：
+**Linux** — 使用 `build.sh`，自动完成 DuckDB 库下载、解压和 qduck 编译：
 
 ```bash
-wget https://install.duckdb.org/v1.4.2/libduckdb-linux-amd64.zip
+wget https://install.duckdb.org/v1.4.5/libduckdb-linux-amd64.zip
 unzip libduckdb-linux-amd64.zip -d libduckdb
 gcc -shared -fPIC -o qduck/qduck.l64.so src/c/qduck.c -I./libduckdb -L./libduckdb -lduckdb -mavx2 -O2 -Wl,-rpath,'$ORIGIN'
 cp libduckdb/libduckdb.so qduck/
@@ -38,11 +38,24 @@ cp libduckdb/libduckdb.so qduck/
 ./build.sh
 ```
 
-输出文件将生成在：
+输出：
 
 ```
 qduck/qduck.l64.so
 qduck/libduckdb.so
+```
+
+**Windows** — 使用 `build.bat`（需要 [MinGW-w64](https://www.mingw-w64.org/)）：
+
+```bat
+build.bat
+```
+
+输出：
+
+```
+qduck\qduck.w64.dll
+qduck\duckdb.dll
 ```
 
 ---
