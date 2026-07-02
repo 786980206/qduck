@@ -51,11 +51,45 @@ if not exist libduckdb\duckdb.h (
     exit /b 1
 )
 
-REM ---- Step 3: Compile qduck extension DLL --------------------------------
-echo [3/4] Compiling qduck\qduck.w64.dll...
+REM ---- Step 3: Create kdb+ import library for linking ---------------------
+REM On Windows, kdb+ API symbols (ktn, krr, ss, etc.) live in q.exe and must
+REM be resolved at link time via an import library.
+echo [3/5] Creating kdb+ import library...
+where dlltool >nul 2>nul
+if %errorlevel% neq 0 (
+    echo ERROR: dlltool not found. Please install MinGW-w64 binutils.
+    exit /b 1
+)
+
+REM Generate .def file declaring kdb+ symbols as exports of q.exe
+(
+echo LIBRARY "q.exe"
+echo EXPORTS
+echo   krr
+echo   ktn
+echo   ss
+echo   kj
+echo   ki
+echo   knk
+echo   xD
+echo   xT
+) > kdb.def
+
+REM Create MinGW import library from .def
+dlltool -m i386:x86-64 -d kdb.def -l libkdb.dll.a -D q.exe
+if !errorlevel! neq 0 (
+    echo ERROR: dlltool failed to create import library.
+    exit /b 1
+)
+
+REM ---- Step 4: Compile qduck extension DLL --------------------------------
+echo [4/5] Compiling qduck\qduck.w64.dll...
 if not exist qduck mkdir qduck
 
-gcc -shared -o qduck\qduck.w64.dll src\c\qduck.c -I.\libduckdb libduckdb\duckdb.dll -O2 -static-libgcc -Wl,--allow-shlib-undefined
+REM -L. -lkdb   : resolves kdb+ API from libkdb.dll.a (import from q.exe)
+REM duckdb.dll  : link directly against DuckDB DLL
+REM -O2 -static-libgcc : optimize, avoid libgcc_s dependency
+gcc -shared -o qduck\qduck.w64.dll src\c\qduck.c -I.\libduckdb -L. -lkdb libduckdb\duckdb.dll -O2 -static-libgcc
 if !errorlevel! neq 0 (
     echo.
     echo ERROR: Compilation failed.
@@ -63,8 +97,12 @@ if !errorlevel! neq 0 (
 )
 echo   Compiled successfully.
 
-REM ---- Step 4: Copy DuckDB DLL alongside the extension --------------------
-echo [4/4] Copying duckdb.dll to qduck\...
+REM Cleanup build artifacts
+if exist kdb.def del /Q kdb.def >nul 2>nul
+if exist libkdb.dll.a del /Q libkdb.dll.a >nul 2>nul
+
+REM ---- Step 5: Copy DuckDB DLL alongside the extension --------------------
+echo [5/5] Copying duckdb.dll to qduck\...
 if not exist libduckdb\duckdb.dll (
     echo WARNING: duckdb.dll not found.
     dir libduckdb\
